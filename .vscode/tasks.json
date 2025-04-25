@@ -1,0 +1,16 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build Win32 App",
+      "type": "shell",
+      "command": "gcc",
+      "args": ["main.c", "tag.c", "-o", "main", "&&", "./main"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

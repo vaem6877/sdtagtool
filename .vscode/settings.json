@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+      "stdio.h": "c"
+    },
+    "code-runner.runInTerminal": true,
+    "code-runner.executorMap": {
+      "c": "gcc main.c tag.c -o main.exe && ./main.exe"
+    }
+  }
