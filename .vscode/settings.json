@@ -1,9 +1,11 @@
 {
     "files.associations": {
-      "stdio.h": "c"
+      "stdio.h": "c",
+      "cstdlib": "c",
+      "*.rh": "c"
     },
     "code-runner.runInTerminal": true,
     "code-runner.executorMap": {
-      "c": "gcc main.c tag.c -o main.exe -municode && ./main.exe"
+      "c": "gcc main.c tag.c -o main.exe -municode -mwindows && ./main.exe"
     }
   }
