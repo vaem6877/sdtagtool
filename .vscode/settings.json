@@ -4,6 +4,6 @@
     },
     "code-runner.runInTerminal": true,
     "code-runner.executorMap": {
-      "c": "gcc main.c tag.c -o main.exe && ./main.exe"
+      "c": "gcc main.c tag.c -o main.exe -municode && ./main.exe"
     }
   }

@@ -1,6 +1,6 @@
-#include <stdio.h>
 #include <string.h>     // 문자열 처리 (strlen, strcpy 등)
 #include <windows.h>    // 윈도우 API 사용 (클립보드 등)
+#include <wchar.h>
 #include "tag.h"
 
 // 클립보드에 문자열 복사하는 함수
@@ -14,42 +14,6 @@ void copy_to_clipboard(cstr text) {
     EmptyClipboard();       // 클립보드 초기화
     SetClipboardData(CF_TEXT, hMem);  // 문자열을 클립보드에 설정
     CloseClipboard();       // 클립보드 닫기
-}
-
-void print_tag_list(void) {
-    printf("\n===== 태그 목록 ====\n\n");
-    for (int i = 0; i < tagCount; i++) {
-        printf("[%d] %s (%s) - %s\n", i, tags[i].category, tags[i].tag, tags[i].description);
-    }
-}
-
-int get_user_selections(int selected[], int max_count) {
-    char input[1024];
-
-    printf("태그 번호 선택 쉼표 또는 공백으로 구분 : \n");
-    fgets(input, sizeof(input), stdin);
-
-    int count = 0;
-    char *token = strtok(input, ", \n");
-
-    while (token != NULL && count < max_count) {
-        int index = atoi(token);
-
-        if (index >= 0 && index < tagCount) {
-            int is_duplicate = 0;
-            for (int i = 0; i < count; i++) {
-                if (selected[i] == index) {
-                    is_duplicate = 1;
-                    break;
-                }
-            }
-            if (!is_duplicate) {
-                selected[count++] = index;
-            }
-        }
-        token = strtok(NULL, ", \n");
-    }
-    return count;
 }
 
 char* build_tag_string(int selected[], int count) {
@@ -66,29 +30,100 @@ char* build_tag_string(int selected[], int count) {
     return result;
 }
 
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow) {
+    WNDCLASSW wc = {0};
 
+    wc.lpfnWndProc = DefWindowProc;
+    wc.hInstance = hInstance;
+    wc.lpszClassName = L"TagSelector";
 
-
-int main() {
-    SetConsoleOutputCP(CP_UTF8);
-    while (1) {
-        print_tag_list();
-
-        int selected[64];
-        int count = get_user_selections(selected, 64);
-
-        if (count == 0) {
-            printf("유효한 태그가 없습니다.\n");
-            continue;
-        }
-
-        char *result = build_tag_string(selected, count);
-        if (result) {
-            copy_to_clipboard(result);
-            printf("\n[클립보드 복사완료] -> %s\n", result);
-            free(result);
-        }
-        
+    if (!RegisterClassW(&wc)) {
+        MessageBoxW(NULL, L"창 클래스 등록실패!", L"에러", MB_ICONERROR);
+        return 1;
     }
-    return 0;    
+
+    HWND hwnd = CreateWindowW(
+        L"TagSelector",
+        L"태그 셀렉터",
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
+        NULL, NULL, hInstance, NULL
+    );
+
+    ShowWindow(hwnd, nCmdShow);
+    UpdateWindow(hwnd);
+
+    HWND hwndList = CreateWindowW(
+        L"LISTBOX", NULL,
+        WS_CHILD | WS_VISIBLE | WS_BORDER | WS_VSCROLL | LBS_NOTIFY,
+        10, 10, 760, 540,
+        hwnd, NULL, hInstance, NULL
+    );
+
+    const char* prevCategory = NULL;
+    wchar_t lineBuffer[1024];
+    lineBuffer[0] = L'\0';
+    int currentLength = 0;
+
+    for (int i = 0; i < tagCount; i++) {
+
+        if (!prevCategory || strcmp(prevCategory, tags[i].category) != 0) {
+            if (wcslen(lineBuffer) > 0) {
+                SendMessageW(hwndList, LB_ADDSTRING, 0, (LPARAM)lineBuffer);
+                lineBuffer[0] = L'\0';
+                currentLength = 0;
+            }
+
+            SendMessageW(hwndList, LB_ADDSTRING, 0, (LPARAM)L"");
+
+            wchar_t categoryLine[256];
+            wchar_t formattedCategory[260]; // 대괄호 2글자 추가 공간 고려
+            
+            MultiByteToWideChar(CP_UTF8, 0, tags[i].category, -1, categoryLine, 256);
+            
+            // 대괄호로 감싸기
+            swprintf(formattedCategory, 260, L"[%s]", categoryLine);
+            
+            // 리스트박스에 추가
+            SendMessageW(hwndList, LB_ADDSTRING, 0, (LPARAM)formattedCategory);
+
+            prevCategory = tags[i].category;
+
+        }
+
+        // (2) 태그 이어붙이기
+        wchar_t tagBuffer[256];
+        MultiByteToWideChar(CP_UTF8, 0, tags[i].tag, -1, tagBuffer, 256);
+        int tagLen = wcslen(tagBuffer);
+
+        int nextLength = currentLength;
+        if (currentLength > 0) nextLength += 3;
+        nextLength += tagLen;
+
+        if (nextLength >= 80) {
+            if (wcslen(lineBuffer) > 0) {
+                SendMessageW(hwndList, LB_ADDSTRING, 0, (LPARAM)lineBuffer);
+                lineBuffer[0] = L'\0';
+                currentLength = 0;
+            }
+        }
+
+        if (currentLength > 0) {
+            wcscat(lineBuffer, L",  ");
+            currentLength += 3;
+        }
+
+        wcscat(lineBuffer, tagBuffer);
+        currentLength += tagLen;
+    }
+
+    if (wcslen(lineBuffer) > 0) {
+        SendMessageW(hwndList, LB_ADDSTRING, 0, (LPARAM)lineBuffer);
+    }
+    MSG msg;
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+    return 0;
 }
